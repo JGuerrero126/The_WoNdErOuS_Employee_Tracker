@@ -2,7 +2,6 @@ const art = require("ascii-art");
 const mysql = require("mysql2");
 const cTable = require("console.table");
 const inquirer = require("inquirer");
-const { ui } = require("inquirer");
 require("dotenv").config();
 
 const db = mysql.createConnection(
@@ -17,15 +16,15 @@ const db = mysql.createConnection(
   console.log(`Connected to the database.`)
 );
 
-mainmenu = () => {
-  try {
-    let rendered = art
-      .font("THE WONDEROUS EMPLOYEE TRACKER", "doom")
-      .completed();
-  } catch (err) {
-    console.error("Something went wrong with the ASCII");
-  }
+const opener = () =>
+  art.font("THE WONDEROUS EMPLOYEE TRACKER", "doom", (err, rendered) => {
+    if (err) {
+      console.log(err);
+    }
+    console.log(rendered);
+  });
 
+mainmenu = () => {
   inquirer
     .prompt([
       {
@@ -104,30 +103,18 @@ addEmployee = () => {
         name: "last_name",
         message: "What is the Employees last name?",
       },
-      {
-        type: "list",
-        name: "role_id",
-        message: "What is this Employees Role be?",
-        choices: [checkRoles],
-      },
-      {
-        type: "list",
-        name: "manager_id",
-        message: "What is the Employees first name?",
-        choices: [checkManagers],
-      },
     ])
     .then((choices) => {
-      let sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id)
-        VALUES (${choices.first_name}, ${choices.last_name}, ${choices.role_id}, ${choices.manager_id});`;
-      db.query(sql, (err, results) => {
-        if (err) {
-          console.log(err);
-          return;
-        }
-        console.log("Employee added successfully!");
-        mainmenu();
+      const answers = [choices.first_name, choices.last_name];
+      db.query(`SELECT roles.id, roles.title FROM roles`, (err, results) => {
+        if (err) throw err;
+        const roles = [];
+        roles.push({ id: results.roles.id, value: results.roles.title });
+        inquirer.prompt([]);
       });
+
+      console.log("Employee added successfully!");
+      mainmenu();
     });
 };
 
@@ -146,7 +133,54 @@ viewRoles = () => {
   });
 };
 
-addRole = () => {};
+addRole = () => {
+  inquirer
+    .prompt([
+      {
+        type: "input",
+        name: "title",
+        message: "What is the title of the new Role?",
+      },
+      {
+        type: "number",
+        name: "salary",
+        message: "What is the salary of the new Role?",
+      },
+    ])
+    .then((choices) => {
+      const answers = [choices.title, choices.salary];
+      let sql = "SELECT * FROM departments";
+      db.query(sql, (err, results) => {
+        const departments = [];
+        departments.push({
+          id: results.departments.id,
+          value: results.departments.name,
+        });
+        inquirer
+          .prompt([
+            {
+              type: "list",
+              name: "dep_id",
+              message: "What department does this role belong to?",
+              choices: departments,
+            },
+          ])
+          .then((choices) => {
+            answers.push(choices.dep_id);
+            let sql = `INSERT INTO roles (title, salary, department_id)
+            VALUES (?, ?, ?)`;
+            db.query(sql, answers, (err, results) => {
+              if (err) {
+                console.log(err);
+                return;
+              }
+              console.log("Role successfully added!");
+              mainmenu();
+            });
+          });
+      });
+    });
+};
 
 viewDepartments = () => {
   let sql = "SELECT * FROM departments";
@@ -161,34 +195,27 @@ viewDepartments = () => {
   });
 };
 
-addDepartments = () => {};
-
+addDepartments = () => {
+  inquirer
+    .prompt([
+      {
+        type: "input",
+        name: "depname",
+        message: "What is the name of the new department?",
+      },
+    ])
+    .then((choices) => {
+      let sql = `INSERT INTO departments (name)
+        VALUES (?)`;
+      db.query(sql, choices.depname, (err, results) => {
+        if (err) {
+          console.log(err);
+          return;
+        }
+        console.log("Department added successfully!");
+        mainmenu();
+      });
+    });
+};
+opener();
 mainmenu();
-
-const checkRoles = db.query(
-  `SELECT roles.id, roles.title FROM roles`,
-  (err, rows) => {
-    if (err) throw err;
-    const roles = [];
-
-    for (let i = 0; i < rows.length; i++) {
-      roles.push({ id: rows[i].roles.id, value: rows[i].roles.title });
-    }
-    roles.push({ name: "None", value: null });
-    return roles;
-  }
-);
-
-const checkManagers = db.query(
-  `SELECT CONCAT(first_name, ' ',  last_name) AS manager FROM employee WHERE manager_id IS NULL;`,
-  (err, rows) => {
-    if (err) throw err;
-    const managers = [];
-
-    for (let i = 0; i < rows.length; i++) {
-      managers.push({ name: rows[i].manager, value: i + 1 });
-    }
-    managers.push({ name: "None", value: null });
-    return managers;
-  }
-);
