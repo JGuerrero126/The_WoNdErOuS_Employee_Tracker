@@ -117,7 +117,18 @@ addEmployee = () => {
         choices: [checkManagers],
       },
     ])
-    .then((choices) => {});
+    .then((choices) => {
+      let sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id)
+        VALUES (${choices.first_name}, ${choices.last_name}, ${choices.role_id}, ${choices.manager_id});`;
+      db.query(sql, (err, results) => {
+        if (err) {
+          console.log(err);
+          return;
+        }
+        console.log("Employee added successfully!");
+        mainmenu();
+      });
+    });
 };
 
 updateEmployRole = () => {};
