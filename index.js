@@ -1,30 +1,41 @@
-const art = require("ascii-art");
+const figlet = require("figlet");
 const mysql = require("mysql2");
 const cTable = require("console.table");
 const inquirer = require("inquirer");
 require("dotenv").config();
 
+const opener = () => {
+  figlet.text(
+    "WELCOME TO THE WONDEROUS EMPLOYEE TRACKER",
+    {
+      font: "Doom",
+      horizontalLayout: "fitted",
+      verticalLayout: "fitted",
+      width: 80,
+      whitespaceBreak: true,
+    },
+    function (err, data) {
+      if (err) {
+        console.log("UH OH SOMETHING WENT WRONG WITH FIGLET! OH FIG!");
+        console.dir(err);
+        return;
+      }
+      console.log(data);
+    }
+  );
+};
+
 const db = mysql.createConnection(
   {
     host: "localhost",
-    // MySQL username,
     user: process.env.USER,
-    // MySQL password
     password: process.env.PASS,
     database: process.env.DB,
   },
-  console.log(`Connected to the database.`)
+  console.log()
 );
 
-const opener = () =>
-  art.font("THE WONDEROUS EMPLOYEE TRACKER", "doom", (err, rendered) => {
-    if (err) {
-      console.log(err);
-    }
-    console.log(rendered);
-  });
-
-mainmenu = () => {
+const mainmenu = () => {
   inquirer
     .prompt([
       {
@@ -77,7 +88,7 @@ mainmenu = () => {
     });
 };
 
-viewEmployees = () => {
+const viewEmployees = () => {
   let sql = "SELECT * FROM employees";
 
   db.query(sql, (err, results) => {
@@ -90,7 +101,7 @@ viewEmployees = () => {
   });
 };
 
-addEmployee = () => {
+const addEmployee = () => {
   inquirer
     .prompt([
       {
@@ -108,19 +119,114 @@ addEmployee = () => {
       const answers = [choices.first_name, choices.last_name];
       db.query(`SELECT roles.id, roles.title FROM roles`, (err, results) => {
         if (err) throw err;
-        const roles = [];
-        roles.push({ id: results.roles.id, value: results.roles.title });
-        inquirer.prompt([]);
+        const roles = results.map(({ id, title }) => ({
+          name: title,
+          value: id,
+        }));
+        inquirer
+          .prompt([
+            {
+              type: "list",
+              name: "role",
+              message: "What will this Employee's role be?",
+              choices: roles,
+            },
+          ])
+          .then((rolechoice) => {
+            const role = rolechoice.role;
+            answers.push(role);
+            db.query(
+              `SELECT * FROM employees WHERE manager_id IS NULL`,
+              (err, results) => {
+                if (err) throw err;
+                const managers = results.map(
+                  ({ id, first_name, last_name }) => ({
+                    name: first_name + " " + last_name,
+                    value: id,
+                  })
+                );
+                inquirer
+                  .prompt([
+                    {
+                      type: "list",
+                      name: "manager",
+                      message: "Who will be their manager?",
+                      choices: managers,
+                    },
+                  ])
+                  .then((managerchoice) => {
+                    const manager = managerchoice.manager;
+                    answers.push(manager);
+                    let sql = `INSERT INTO employees (first_name, last_name, role_id, manager_id)
+                        VALUES (?, ?, ?, ?)`;
+                    db.query(sql, answers, (err) => {
+                      if (err) throw err;
+                      console.log("Employee added successfully!");
+                      viewEmployees();
+                      mainmenu();
+                    });
+                  });
+              }
+            );
+          });
       });
-
-      console.log("Employee added successfully!");
-      mainmenu();
     });
 };
 
-updateEmployRole = () => {};
+const updateEmployRole = () => {
+  db.query(`SELECT * FROM employees`, (err, results) => {
+    if (err) throw err;
+    const employees = results.map(({ id, first_name, last_name }) => ({
+      name: first_name + " " + last_name,
+      value: id,
+    }));
+    inquirer
+      .prompt([
+        {
+          type: "list",
+          name: "employee",
+          message: "Which Employee did you want to update the Role for?",
+          choices: employees,
+        },
+      ])
+      .then((employeeChoice) => {
+        const answers = [employeeChoice.employee];
+        db.query(`SELECT roles.id, roles.title FROM roles`, (err, results) => {
+          if (err) throw err;
+          const roles = results.map(({ id, title }) => ({
+            name: title,
+            value: id,
+          }));
+          inquirer
+            .prompt([
+              {
+                type: "list",
+                name: "role",
+                message: "What will this Employee's new Role be?",
+                choices: roles,
+              },
+            ])
+            .then((roleChoice) => {
+              const role = roleChoice.role;
+              answers.push(role);
+              const { employee, roles } = answers;
+              const choices = [roles, employee];
+              let sql = `UPDATE employees
+              SET role_id = ?
+                WHERE id = ?`;
+              db.query(sql, choices, (err, results) => {
+                if (err) throw err;
+                viewEmployees();
+                console.log("Employees Role Successfully Updated!! Wooo!");
+                mainmenu();
+              });
+            });
+        });
+      });
+  });
+};
 
-viewRoles = () => {
+const viewRoles = () => {
   let sql = "SELECT * FROM roles";
 
   db.query(sql, (err, results) => {
@@ -133,7 +239,7 @@ viewRoles = () => {
   });
 };
 
-addRole = () => {
+const addRole = () => {
   inquirer
     .prompt([
       {
@@ -151,11 +257,11 @@ addRole = () => {
       const answers = [choices.title, choices.salary];
       let sql = "SELECT * FROM departments";
       db.query(sql, (err, results) => {
-        const departments = [];
-        departments.push({
-          id: results.departments.id,
-          value: results.departments.name,
-        });
+        if (err) throw err;
+        const departments = results.map(({ id, name }) => ({
+          name: name,
+          value: id,
+        }));
         inquirer
           .prompt([
             {
@@ -174,6 +280,7 @@ addRole = () => {
                 console.log(err);
                 return;
               }
+              viewRoles();
               console.log("Role successfully added!");
               mainmenu();
             });
@@ -182,7 +289,7 @@ addRole = () => {
     });
 };
 
-viewDepartments = () => {
+const viewDepartments = () => {
   let sql = "SELECT * FROM departments";
 
   db.query(sql, (err, results) => {
@@ -195,7 +302,7 @@ viewDepartments = () => {
   });
 };
 
-addDepartments = () => {
+const addDepartments = () => {
   inquirer
     .prompt([
       {
@@ -217,5 +324,6 @@ addDepartments = () => {
       });
     });
 };
+
 opener();
 mainmenu();
