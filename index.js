@@ -21,6 +21,7 @@ const opener = () => {
         return;
       }
       console.log(data);
+      mainmenu();
     }
   );
 };
@@ -78,7 +79,7 @@ const mainmenu = () => {
           addDepartments();
           break;
         case "Quit":
-          return;
+          process.exit();
         default:
           console.log(
             "I'm sorry I didn't understand your choice, please start over."
@@ -163,7 +164,6 @@ const addEmployee = () => {
                       if (err) throw err;
                       console.log("Employee added successfully!");
                       viewEmployees();
-                      mainmenu();
                     });
                   });
               }
@@ -218,7 +218,6 @@ const updateEmployRole = () => {
                 if (err) throw err;
                 viewEmployees();
                 console.log("Employees Role Successfully Updated!! Wooo!");
-                mainmenu();
               });
             });
         });
@@ -282,7 +281,6 @@ const addRole = () => {
               }
               viewRoles();
               console.log("Role successfully added!");
-              mainmenu();
             });
           });
       });
@@ -320,10 +318,9 @@ const addDepartments = () => {
           return;
         }
         console.log("Department added successfully!");
-        mainmenu();
+        viewDepartments();
       });
     });
 };
 
 opener();
-mainmenu();
