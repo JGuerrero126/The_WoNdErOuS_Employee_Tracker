@@ -208,13 +208,11 @@ const updateEmployRole = () => {
             ])
             .then((roleChoice) => {
               const role = roleChoice.role;
-              answers.push(role);
-              const { employee, roles } = answers;
-              const choices = [roles, employee];
+              answers.unshift(role);
               let sql = `UPDATE employees
               SET role_id = ?
                 WHERE id = ?`;
-              db.query(sql, choices, (err, results) => {
+              db.query(sql, answers, (err, results) => {
                 if (err) throw err;
                 viewEmployees();
                 console.log("Employees Role Successfully Updated!! Wooo!");
